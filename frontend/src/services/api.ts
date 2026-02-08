@@ -16,11 +16,11 @@ import type {
 } from '../types';
 
 // Base URL configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Create axios instance with defaults
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -42,7 +42,7 @@ function handleApiError(error: unknown): never {
 export async function checkHealth(): Promise<boolean> {
   try {
     // Health endpoint is at root level, not under /api
-    const response = await axios.get('http://localhost:8000/health');
+    const response = await axios.get(`${API_BASE_URL}/health`);
     return response.data.status === 'healthy';
   } catch {
     return false;
@@ -203,7 +203,7 @@ export async function generateCompletePackageWithProgress(
   params.append('include_email', String(options.include_email));
   params.append('include_marketing', String(options.include_marketing));
   
-  const url = `http://localhost:8000/api/generate/complete-package-stream?${params.toString()}`;
+  const url = `${API_BASE_URL}/api/generate/complete-package-stream?${params.toString()}`;
   
   try {
     const response = await fetch(url, {

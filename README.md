@@ -203,6 +203,72 @@ The "Nano Banana" model for high-fidelity image generation with:
 - Professional design quality
 - Various dimensions for different platforms
 
+## Deployment
+
+Deploy Brandbolt for free with automatic CI/CD using Render (backend) and Vercel (frontend).
+
+### Backend Deployment (Render)
+
+1. **Create Render Account**: Go to [render.com](https://render.com) and sign up
+2. **Connect GitHub**: Link your GitHub account
+3. **Create New Web Service**:
+   - Click "New" → "Web Service"
+   - Select your `brand-asset-generator` repository
+   - Configure:
+     - **Name**: `brandbolt-api`
+     - **Root Directory**: `backend`
+     - **Runtime**: Python 3
+     - **Build Command**: `pip install -r requirements.txt`
+     - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+4. **Add Environment Variables** (in Render dashboard):
+   - `GOOGLE_API_KEY`: Your Google AI API key
+   - `CORS_ORIGINS`: Your Vercel frontend URL (e.g., `https://brandbolt.vercel.app`)
+5. **Deploy**: Click "Create Web Service"
+
+Your API will be live at `https://brandbolt-api.onrender.com`
+
+### Frontend Deployment (Vercel)
+
+1. **Create Vercel Account**: Go to [vercel.com](https://vercel.com) and sign up
+2. **Import Project**:
+   - Click "Add New" → "Project"
+   - Import your `brand-asset-generator` repository
+3. **Configure Project**:
+   - **Root Directory**: `frontend`
+   - **Framework Preset**: Vite
+4. **Add Environment Variable**:
+   - `VITE_API_URL`: Your Render backend URL (e.g., `https://brandbolt-api.onrender.com`)
+5. **Deploy**: Click "Deploy"
+
+Your app will be live at `https://brandbolt.vercel.app`
+
+### CI/CD Pipeline
+
+Both platforms automatically deploy on every push to `main`:
+
+```
+git push origin main
+     ↓
+GitHub triggers webhooks
+     ↓
+┌─────────────────┐    ┌─────────────────┐
+│  Render         │    │  Vercel         │
+│  (Backend)      │    │  (Frontend)     │
+│  - Pull code    │    │  - Pull code    │
+│  - Install deps │    │  - npm install  │
+│  - Restart API  │    │  - npm build    │
+└─────────────────┘    └─────────────────┘
+     ↓                        ↓
+   Live API              Live Frontend
+```
+
+### Environment Variables Security
+
+Your `GOOGLE_API_KEY` is stored securely in Render's dashboard, not in your code:
+- Never committed to Git
+- Encrypted at rest
+- Only accessible to your application at runtime
+
 ## Judging Criteria Alignment
 
 | Criteria | Implementation |
