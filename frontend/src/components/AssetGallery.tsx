@@ -181,6 +181,51 @@ export default function AssetGallery({ assetPackage, onReset }: AssetGalleryProp
         </div>
       </div>
 
+      {/* Campaign Context */}
+      {assetPackage.campaign && (
+        <div className="bg-gradient-to-br from-pink-50 to-rose-50 border border-pink-200 rounded-2xl shadow-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg">
+              <Megaphone className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">
+                Campaign: {assetPackage.campaign.campaign_name}
+              </h3>
+              <p className="text-sm text-gray-500">Ready-to-deploy campaign bundle</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="bg-white/60 rounded-xl p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Campaign Goal</p>
+              <p className="text-gray-800">{assetPackage.campaign.campaign_goal}</p>
+            </div>
+            <div className="bg-white/60 rounded-xl p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Key Message</p>
+              <p className="text-gray-800 font-medium">{assetPackage.campaign.campaign_message || '—'}</p>
+            </div>
+          </div>
+          
+          <div className="bg-white/60 rounded-xl p-4 mb-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Unified Theme</p>
+            <p className="text-gray-700 text-sm leading-relaxed">{assetPackage.campaign.unified_theme}</p>
+          </div>
+          
+          <div className="bg-white/60 rounded-xl p-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Deployment Checklist</p>
+            <ul className="space-y-2">
+              {assetPackage.campaign.deployment_checklist.map((item, index) => (
+                <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="mt-1 rounded border-gray-300 text-pink-600 focus:ring-pink-500" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Batch Consistency Score */}
       {assetPackage.batch_score && (
         <BatchScoreCard 

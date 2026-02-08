@@ -7,7 +7,7 @@
  */
 
 import { useForm } from 'react-hook-form';
-import { Palette, Type, Users, Building2, Heart, Sparkles, Target } from 'lucide-react';
+import { Palette, Type, Users, Building2, Heart, Sparkles, Target, Megaphone } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { BrandGuidelines, GenerationOptions } from '../types';
 import { FONT_OPTIONS, INDUSTRY_OPTIONS, TONE_OPTIONS } from '../types';
@@ -51,6 +51,9 @@ export default function BrandForm({ onSubmit, isLoading }: BrandFormProps) {
       additional_context: '',
       competitors: '',
       differentiation: '',
+      campaign_name: '',
+      campaign_goal: '',
+      campaign_message: '',
       include_logos: true,
       include_social: true,
       include_presentation: true,
@@ -527,6 +530,60 @@ export default function BrandForm({ onSubmit, isLoading }: BrandFormProps) {
             <p className="mt-1 text-xs text-gray-400">Your unique value proposition or differentiator</p>
           </div>
         </div>
+      </section>
+
+      {/* Campaign Bundling Section */}
+      <section className="bg-white rounded-2xl shadow-lg p-6 animate-slide-up" style={{ animationDelay: '0.38s' }}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg">
+            <Megaphone className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">Campaign Bundling</h2>
+            <p className="text-sm text-gray-500">Generate a complete, ready-to-deploy campaign</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Campaign Name (Optional)
+            </label>
+            <input
+              type="text"
+              {...register('campaign_name')}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              placeholder="e.g., Summer Sale 2026"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Campaign Goal (Optional)
+            </label>
+            <input
+              type="text"
+              {...register('campaign_goal')}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              placeholder="e.g., Drive sign-ups, Boost sales"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Key Message / CTA (Optional)
+            </label>
+            <input
+              type="text"
+              {...register('campaign_message')}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              placeholder="e.g., Get 50% off today!"
+            />
+          </div>
+        </div>
+        <p className="mt-4 text-xs text-gray-400">
+          When campaign details are provided, all assets will be unified around your campaign theme and you'll receive a deployment checklist.
+        </p>
       </section>
 
       {/* Asset Selection Section */}

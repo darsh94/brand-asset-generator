@@ -16,6 +16,7 @@ Built for the **Gemini 3 Hackathon 2026** - A powerful tool that takes brand gui
 - **Self-Correcting AI**: Validates generated assets against brand guidelines and regenerates if quality threshold not met
 - **Brand Consistency Scoring**: Each asset scored on color adherence, typography, tone alignment, and brand recognition
 - **Competitive Differentiation**: Analyzes competitor visuals and messaging to ensure generated assets are clearly differentiated in the market
+- **Campaign-Level Asset Bundling**: Delivers complete, ready-to-deploy campaigns with unified messaging, coordinated assets, and a deployment checklist
 
 ## Tech Stack
 

@@ -71,6 +71,20 @@ class BrandGuidelines(BaseModel):
         None,
         description="What makes this brand unique/different from competitors"
     )
+    
+    # Campaign bundling
+    campaign_name: Optional[str] = Field(
+        None,
+        description="Name of the campaign (e.g., 'Summer Sale 2026', 'Product Launch')"
+    )
+    campaign_goal: Optional[str] = Field(
+        None,
+        description="Primary goal of the campaign (e.g., 'Drive sign-ups', 'Increase brand awareness')"
+    )
+    campaign_message: Optional[str] = Field(
+        None,
+        description="Key message or CTA for the campaign (e.g., 'Get 50% off', 'Join the waitlist')"
+    )
 
 
 class LogoVariation(str, Enum):
@@ -207,6 +221,18 @@ class BatchConsistencyScore(BaseModel):
     needs_attention: list[str] = Field(default=[], description="Assets that may need revision")
 
 
+class CampaignContext(BaseModel):
+    """Campaign context for bundled assets."""
+    campaign_name: str = Field(..., description="Name of the campaign")
+    campaign_goal: str = Field(..., description="Primary goal of the campaign")
+    campaign_message: str = Field(..., description="Key message or CTA")
+    unified_theme: str = Field(..., description="AI-generated unified theme description")
+    deployment_checklist: list[str] = Field(
+        default=[],
+        description="Checklist of assets and where to deploy them"
+    )
+
+
 class AssetPackage(BaseModel):
     """Response model for a complete asset package."""
     brand_name: str
@@ -222,6 +248,10 @@ class AssetPackage(BaseModel):
     batch_score: Optional[BatchConsistencyScore] = Field(
         None,
         description="Aggregate consistency score for all assets"
+    )
+    campaign: Optional[CampaignContext] = Field(
+        None,
+        description="Campaign context if assets are part of a unified campaign"
     )
 
 

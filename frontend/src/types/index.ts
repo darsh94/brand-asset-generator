@@ -37,6 +37,10 @@ export interface BrandGuidelines {
   // Competitive differentiation
   competitors?: string;
   differentiation?: string;
+  // Campaign bundling
+  campaign_name?: string;
+  campaign_goal?: string;
+  campaign_message?: string;
 }
 
 export interface LogoRequest {
@@ -122,12 +126,21 @@ export interface GeneratedAsset {
   self_corrected: boolean;
 }
 
+export interface CampaignContext {
+  campaign_name: string;
+  campaign_goal: string;
+  campaign_message: string;
+  unified_theme: string;
+  deployment_checklist: string[];
+}
+
 export interface AssetPackage {
   brand_name: string;
   assets: GeneratedAsset[];
   brand_analysis: string;
   generation_notes?: string;
   batch_score?: BatchConsistencyScore;
+  campaign?: CampaignContext;
 }
 
 export interface GenerationOptions {

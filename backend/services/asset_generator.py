@@ -26,6 +26,7 @@ from models.schemas import (
     BatchConsistencyScore,
     ValidationResult,
     AssetIteration,
+    CampaignContext,
 )
 
 # Configuration for self-correcting loop
@@ -819,10 +820,117 @@ Apply these specific corrections in this version."""
         # Compute batch score
         batch_score = await self._compute_batch_score(scored_assets)
         
+        # Build campaign context if campaign fields are provided
+        campaign_context = None
+        if brand_guidelines.campaign_name or brand_guidelines.campaign_goal or brand_guidelines.campaign_message:
+            campaign_context = await self._build_campaign_context(
+                brand_guidelines=brand_guidelines,
+                assets=scored_assets
+            )
+        
         return AssetPackage(
             brand_name=brand_guidelines.brand_name,
             assets=scored_assets,
             brand_analysis=brand_analysis,
             generation_notes=" | ".join(generation_notes),
-            batch_score=batch_score
+            batch_score=batch_score,
+            campaign=campaign_context
         )
+    
+    async def _build_campaign_context(
+        self,
+        brand_guidelines: BrandGuidelines,
+        assets: list[GeneratedAsset]
+    ) -> CampaignContext:
+        """
+        Build campaign context with deployment checklist.
+        
+        Args:
+            brand_guidelines: Brand guidelines with campaign info
+            assets: Generated assets to include in the campaign
+            
+        Returns:
+            CampaignContext with unified theme and deployment checklist
+        """
+        campaign_name = brand_guidelines.campaign_name or "Brand Campaign"
+        campaign_goal = brand_guidelines.campaign_goal or "Brand awareness"
+        campaign_message = brand_guidelines.campaign_message or brand_guidelines.tagline or ""
+        
+        # Generate unified theme description
+        unified_theme = await self._generate_campaign_theme(
+            brand_guidelines=brand_guidelines,
+            asset_count=len(assets)
+        )
+        
+        # Build deployment checklist based on generated assets
+        deployment_checklist = []
+        asset_type_map = {
+            AssetType.LOGO: "Upload logo to website header, favicon, and social profiles",
+            AssetType.SOCIAL_MEDIA: "Schedule social media posts across platforms",
+            AssetType.PRESENTATION: "Use presentation deck for investor/client meetings",
+            AssetType.EMAIL_TEMPLATE: "Import email templates into email marketing platform",
+            AssetType.MARKETING: "Deploy marketing materials to digital ad platforms and print"
+        }
+        
+        # Group assets by type and create checklist items
+        asset_types_present = set(asset.asset_type for asset in assets)
+        for asset_type in asset_types_present:
+            if asset_type in asset_type_map:
+                deployment_checklist.append(asset_type_map[asset_type])
+        
+        # Add campaign-specific items
+        deployment_checklist.extend([
+            f"Ensure all assets prominently feature: '{campaign_message}'",
+            "Review all assets for brand consistency before launch",
+            "Set up tracking/analytics for campaign performance",
+        ])
+        
+        return CampaignContext(
+            campaign_name=campaign_name,
+            campaign_goal=campaign_goal,
+            campaign_message=campaign_message,
+            unified_theme=unified_theme,
+            deployment_checklist=deployment_checklist
+        )
+    
+    async def _generate_campaign_theme(
+        self,
+        brand_guidelines: BrandGuidelines,
+        asset_count: int
+    ) -> str:
+        """
+        Generate a unified theme description for the campaign.
+        
+        Args:
+            brand_guidelines: Brand guidelines with campaign info
+            asset_count: Number of assets generated
+            
+        Returns:
+            Unified theme description
+        """
+        prompt = f"""Write a brief (2-3 sentences) unified campaign theme for:
+
+Brand: {brand_guidelines.brand_name}
+Campaign: {brand_guidelines.campaign_name or 'Brand Launch'}
+Goal: {brand_guidelines.campaign_goal or 'Brand awareness'}
+Key Message: {brand_guidelines.campaign_message or 'None specified'}
+Assets Generated: {asset_count} coordinated assets
+Brand Tone: {brand_guidelines.brand_tone}
+
+Describe how all assets work together as a cohesive campaign. Be specific about the visual and messaging thread that ties them together. Write in plain prose, no formatting."""
+
+        try:
+            from services.gemini_service import TEXT_MODEL
+            from google.genai import types
+            
+            response = self.gemini.client.models.generate_content(
+                model=TEXT_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.5,
+                    max_output_tokens=300,
+                )
+            )
+            return response.text.strip().replace('**', '').replace('*', '')
+        except Exception as e:
+            return f"A cohesive {brand_guidelines.brand_tone.lower()} campaign featuring {asset_count} coordinated assets designed to {brand_guidelines.campaign_goal or 'build brand awareness'}."

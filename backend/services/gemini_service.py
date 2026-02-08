@@ -68,6 +68,22 @@ Competitors: {competitors if competitors else 'Not specified'}
 Key Differentiator: {differentiation if differentiation else 'To be defined'}
 """
 
+        # Build campaign context if provided
+        campaign_name = brand_guidelines.get('campaign_name', '')
+        campaign_goal = brand_guidelines.get('campaign_goal', '')
+        campaign_message = brand_guidelines.get('campaign_message', '')
+        campaign_section = ""
+        campaign_brief_section = ""
+        if campaign_name or campaign_goal or campaign_message:
+            campaign_section = f"""
+Campaign Context:
+Campaign Name: {campaign_name if campaign_name else 'General brand assets'}
+Campaign Goal: {campaign_goal if campaign_goal else 'Brand awareness'}
+Key Message/CTA: {campaign_message if campaign_message else 'None specified'}
+"""
+            campaign_brief_section = f"""
+CAMPAIGN UNITY — All assets must work together as a cohesive campaign. The campaign "{campaign_name}" aims to "{campaign_goal}". Every asset should reinforce the key message: "{campaign_message}". Describe how visual elements, messaging hierarchy, and design motifs should remain consistent across all touchpoints to create a unified, ready-to-deploy campaign."""
+
         prompt = f"""You are a senior brand strategist at a world-class advertising agency. 
 Write a brand identity brief for the creative team. Your writing style is confident, 
 precise, and sophisticated—no fluff, no jargon, just sharp strategic insight.
@@ -84,7 +100,7 @@ Tagline: {brand_guidelines.get('tagline', 'None provided')}
 Visual System:
 Primary: {brand_guidelines.get('primary_color')} | Secondary: {brand_guidelines.get('secondary_color')} | Accent: {brand_guidelines.get('accent_color', 'None')}
 Typography: {brand_guidelines.get('primary_font')} (primary), {brand_guidelines.get('secondary_font', 'same as primary')} (secondary)
-{competitive_section}
+{competitive_section}{campaign_section}
 Additional Context: {brand_guidelines.get('additional_context', 'None')}
 
 Write a creative brief covering:
@@ -100,7 +116,7 @@ IMAGERY & TEXTURE — The visual world this brand inhabits. What does photograph
 AUDIENCE CONNECTION — How the visual identity speaks to the target audience. What makes them stop scrolling?
 
 COMPETITIVE DIFFERENTIATION — {"Analyze how the visual identity should clearly distinguish this brand from competitors like " + competitors + ". What visual and tonal elements will make this brand unmistakably different? How does the differentiation (" + differentiation + ") translate into design choices?" if competitors else "What visual elements will make this brand stand out in the " + brand_guidelines.get('industry', 'market') + " space?"}
-
+{campaign_brief_section}
 Write in plain prose. No bullet points. No asterisks. No markdown formatting. 
 Write as if this brief will be printed and handed to the creative director.
 Be direct, insightful, and memorable."""
