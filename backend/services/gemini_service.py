@@ -2,8 +2,8 @@
 Gemini Service for Brand Asset Generator.
 
 This service handles all interactions with the Gemini 3 API, including:
-- Brand identity analysis using Gemini 3 Pro
-- Image generation using gemini-3-pro-image-preview (Nano Banana)
+- Brand identity analysis using Gemini 3 Flash
+- Image generation using gemini-3-pro-image-preview
 - PDF parsing for brand guidelines extraction
 """
 
@@ -16,7 +16,7 @@ from google.genai import types
 
 
 # Model identifiers
-TEXT_MODEL = "gemini-2.0-flash"  # For text analysis
+TEXT_MODEL = "gemini-3-flash"  # For text analysis
 IMAGE_MODEL = "gemini-3-pro-image-preview"  # Nano Banana for image generation
 
 
