@@ -1,8 +1,10 @@
-# Brand Asset Generator
+# Brandbolt
 
 > Generate complete brand asset packages using Gemini 3 AI
 
 Built for the **Gemini 3 Hackathon 2026** - A powerful tool that takes brand guidelines and generates a complete suite of visual assets including logos, social media templates, presentation decks, email templates, and marketing materials.
+
+📖 **[Read the full story behind Brandbolt](./HACKATHON_WRITEUP.md)**
 
 ## Features
 
@@ -11,13 +13,15 @@ Built for the **Gemini 3 Hackathon 2026** - A powerful tool that takes brand gui
 - **Presentation Decks**: Professional slides with consistent branding
 - **Email Templates**: Welcome, newsletter, promotional, and more
 - **Marketing Materials**: Banners, flyers, business cards, posters
+- **Self-Correcting AI**: Validates generated assets against brand guidelines and regenerates if quality threshold not met
+- **Brand Consistency Scoring**: Each asset scored on color adherence, typography, tone alignment, and brand recognition
 
 ## Tech Stack
 
 - **Backend**: Python, FastAPI, google-genai SDK
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS
 - **AI Models**:
-  - `gemini-2.0-flash`: Brand analysis and understanding
+  - `gemini-3-flash`: Brand analysis, validation, and understanding
   - `gemini-3-pro-image-preview`: High-fidelity image generation with legible text
 
 ## Quick Start
@@ -94,14 +98,14 @@ The app will be available at `http://localhost:5173`
 ## Project Structure
 
 ```
-brand-asset-generator/
+brandbolt/
 ├── backend/
 │   ├── main.py              # FastAPI application
 │   ├── models/
 │   │   └── schemas.py       # Pydantic models
 │   ├── services/
 │   │   ├── gemini_service.py    # Gemini API integration
-│   │   └── asset_generator.py   # Asset generation logic
+│   │   └── asset_generator.py   # Asset generation with self-correction
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -110,21 +114,87 @@ brand-asset-generator/
 │   │   ├── services/        # API client
 │   │   └── types/           # TypeScript types
 │   └── package.json
+├── HACKATHON_WRITEUP.md     # The story behind Brandbolt
 └── README.md
 ```
+
+## Testing the Application
+
+### Quick Test
+
+1. Start both backend and frontend servers (see Quick Start above)
+2. Open `http://localhost:5173` in your browser
+3. Fill in the brand form with sample data:
+   - **Brand Name**: "Acme Tech"
+   - **Primary Color**: `#3B82F6` (blue)
+   - **Secondary Color**: `#1E40AF` (dark blue)
+   - **Accent Color**: `#F59E0B` (amber)
+   - **Primary Font**: "Inter"
+   - **Industry**: "Technology"
+   - **Target Audience**: "Tech-savvy professionals aged 25-45"
+   - **Brand Tone**: "Professional, innovative, trustworthy"
+4. Select which asset types to generate (start with just Logos for a quick test)
+5. Click "Generate Brand Assets"
+6. Wait for generation to complete (progress timeline will show status)
+7. Review generated assets with consistency scores
+8. Download individual assets or the complete package
+
+### API Testing
+
+Test the API directly using curl:
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Analyze brand (returns brand analysis)
+curl -X POST http://localhost:8000/api/analyze-brand \
+  -H "Content-Type: application/json" \
+  -d '{
+    "brand_name": "Acme Tech",
+    "primary_color": "#3B82F6",
+    "secondary_color": "#1E40AF",
+    "primary_font": "Inter",
+    "industry": "Technology",
+    "target_audience": "Tech professionals",
+    "brand_tone": "Professional and innovative"
+  }'
+
+# Generate logos only
+curl -X POST http://localhost:8000/api/generate/logos \
+  -H "Content-Type: application/json" \
+  -d '{
+    "brand_guidelines": {
+      "brand_name": "Acme Tech",
+      "primary_color": "#3B82F6",
+      "secondary_color": "#1E40AF",
+      "primary_font": "Inter",
+      "industry": "Technology",
+      "target_audience": "Tech professionals",
+      "brand_tone": "Professional"
+    },
+    "variations": ["primary", "icon_only"]
+  }'
+```
+
+### What to Expect
+
+- **Generation Time**: Complete package takes 2-5 minutes depending on selected assets
+- **Self-Correction**: Assets scoring below 70/100 are automatically regenerated (up to 3 attempts)
+- **Consistency Scores**: Each asset shows individual scores for color, typography, tone, and brand recognition
+- **Batch Score**: Overall package gets an aggregate consistency score
 
 ## Gemini 3 Integration
 
 This project leverages two Gemini models:
 
-### Brand Analysis (gemini-2.0-flash)
-Used to deeply understand brand identity from the provided guidelines. Generates comprehensive analysis covering:
-- Visual identity summary
-- Design principles
-- Mood and atmosphere
-- Typography guidelines
-- Color application best practices
-- Imagery style recommendations
+### Brand Analysis & Validation (gemini-3-flash)
+Used to deeply understand brand identity and validate generated assets. Capabilities:
+- Visual identity summary and design principles
+- Mood and atmosphere analysis
+- Typography and color application guidelines
+- Asset validation against brand guidelines
+- Consistency scoring with detailed feedback
 
 ### Image Generation (gemini-3-pro-image-preview)
 The "Nano Banana" model for high-fidelity image generation with:
