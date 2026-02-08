@@ -16,7 +16,7 @@ from google.genai import types
 
 
 # Model identifiers
-TEXT_MODEL = "gemini-3-flash"  # For text analysis
+TEXT_MODEL = "gemini-3-flash-preview"  # For text analysis
 IMAGE_MODEL = "gemini-3-pro-image-preview"  # Nano Banana for image generation
 
 
