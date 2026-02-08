@@ -7,20 +7,113 @@
  * Built for the Gemini 3 Hackathon 2026.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { Sparkles, Github, ExternalLink } from 'lucide-react';
 import { BrandForm, AssetGallery, LoadingState } from './components';
-import { generateCompletePackage, checkHealth } from './services/api';
+import type { TimelineStep, ProgressInfo } from './components';
+import { generateCompletePackageWithProgress, checkHealth } from './services/api';
 import type { BrandGuidelines, GenerationOptions, AssetPackage } from './types';
 
 type AppState = 'form' | 'loading' | 'results';
 
+// Map of step IDs to their labels
+const STEP_LABELS: Record<string, string> = {
+  analysis: 'Brand Analysis',
+  logos: 'Logo Generation',
+  social: 'Social Media Templates',
+  presentation: 'Presentation Slides',
+  email: 'Email Templates',
+  marketing: 'Marketing Materials',
+  scoring: 'Brand Consistency Scoring',
+};
+
+// Map progress messages to step IDs
+const MESSAGE_TO_STEP_ID: Record<string, string> = {
+  'Analyzing brand identity': 'analysis',
+  'Creating logo variations': 'logos',
+  'Generating social media templates': 'social',
+  'Designing presentation slides': 'presentation',
+  'Crafting email templates': 'email',
+  'Building marketing materials': 'marketing',
+  'Scoring brand consistency': 'scoring',
+  'Finalizing assets': 'finalizing',
+};
+
+// Session storage keys
+const STORAGE_KEYS = {
+  APP_STATE: 'bag_app_state',
+  BRAND_NAME: 'bag_brand_name',
+  ASSET_PACKAGE: 'bag_asset_package',
+  FORM_DATA: 'bag_form_data',
+  OPTIONS: 'bag_options',
+  GENERATION_START: 'bag_generation_start',
+};
+
+// Helper to save state to sessionStorage
+const saveToSession = (key: string, value: unknown) => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn('Failed to save to sessionStorage:', e);
+  }
+};
+
+// Helper to load state from sessionStorage
+const loadFromSession = <T,>(key: string): T | null => {
+  try {
+    const item = sessionStorage.getItem(key);
+    return item ? JSON.parse(item) : null;
+  } catch (e) {
+    console.warn('Failed to load from sessionStorage:', e);
+    return null;
+  }
+};
+
+// Helper to clear generation state
+const clearGenerationState = () => {
+  sessionStorage.removeItem(STORAGE_KEYS.APP_STATE);
+  sessionStorage.removeItem(STORAGE_KEYS.BRAND_NAME);
+  sessionStorage.removeItem(STORAGE_KEYS.ASSET_PACKAGE);
+  sessionStorage.removeItem(STORAGE_KEYS.FORM_DATA);
+  sessionStorage.removeItem(STORAGE_KEYS.OPTIONS);
+  sessionStorage.removeItem(STORAGE_KEYS.GENERATION_START);
+};
+
 export default function App() {
-  const [appState, setAppState] = useState<AppState>('form');
-  const [assetPackage, setAssetPackage] = useState<AssetPackage | null>(null);
-  const [currentBrandName, setCurrentBrandName] = useState<string>('');
+  // Initialize state from sessionStorage if available
+  const [appState, setAppState] = useState<AppState>(() => {
+    const saved = loadFromSession<AppState>(STORAGE_KEYS.APP_STATE);
+    // If we were loading, stay in loading state (will show interrupted message)
+    if (saved === 'loading') return 'loading';
+    if (saved === 'results') return 'results';
+    return 'form';
+  });
+  
+  const [assetPackage, setAssetPackage] = useState<AssetPackage | null>(() => 
+    loadFromSession<AssetPackage>(STORAGE_KEYS.ASSET_PACKAGE)
+  );
+  
+  const [currentBrandName, setCurrentBrandName] = useState<string>(() => 
+    loadFromSession<string>(STORAGE_KEYS.BRAND_NAME) || ''
+  );
+  
   const [isApiHealthy, setIsApiHealthy] = useState<boolean | null>(null);
+  const [progress, setProgress] = useState<ProgressInfo | null>(null);
+  const [activeOptions, setActiveOptions] = useState<GenerationOptions | null>(() =>
+    loadFromSession<GenerationOptions>(STORAGE_KEYS.OPTIONS)
+  );
+  
+  const [shouldAutoResume, setShouldAutoResume] = useState<boolean>(() => {
+    // Check if we were in the middle of generation and should auto-resume
+    const savedState = loadFromSession<AppState>(STORAGE_KEYS.APP_STATE);
+    const generationStart = loadFromSession<number>(STORAGE_KEYS.GENERATION_START);
+    return savedState === 'loading' && generationStart !== null;
+  });
+  
+  const [savedFormData] = useState<BrandGuidelines | null>(() =>
+    loadFromSession<BrandGuidelines>(STORAGE_KEYS.FORM_DATA)
+  );
 
   // Check API health on mount
   useEffect(() => {
@@ -36,27 +129,196 @@ export default function App() {
     checkApiHealth();
   }, []);
 
-  const handleSubmit = async (brandGuidelines: BrandGuidelines, options: GenerationOptions) => {
-    setCurrentBrandName(brandGuidelines.brand_name);
-    setAppState('loading');
-
-    try {
-      const result = await generateCompletePackage(brandGuidelines, options);
-      setAssetPackage(result);
-      setAppState('results');
-      toast.success(`Successfully generated ${result.assets.length} brand assets!`);
-    } catch (error) {
-      console.error('Generation error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to generate assets');
-      setAppState('form');
+  // Build the initial steps array based on selected options
+  const buildInitialSteps = useCallback((options: GenerationOptions): TimelineStep[] => {
+    const steps: TimelineStep[] = [
+      { id: 'analysis', label: STEP_LABELS.analysis, status: 'pending' },
+    ];
+    
+    if (options.include_logos) {
+      steps.push({ id: 'logos', label: STEP_LABELS.logos, status: 'pending' });
     }
+    if (options.include_social) {
+      steps.push({ id: 'social', label: STEP_LABELS.social, status: 'pending' });
+    }
+    if (options.include_presentation) {
+      steps.push({ id: 'presentation', label: STEP_LABELS.presentation, status: 'pending' });
+    }
+    if (options.include_email) {
+      steps.push({ id: 'email', label: STEP_LABELS.email, status: 'pending' });
+    }
+    if (options.include_marketing) {
+      steps.push({ id: 'marketing', label: STEP_LABELS.marketing, status: 'pending' });
+    }
+    
+    // Always add scoring at the end
+    steps.push({ id: 'scoring', label: STEP_LABELS.scoring, status: 'pending' });
+    
+    return steps;
+  }, []);
+
+  // Internal submit handler - used by both form submission and auto-resume
+  const handleSubmitInternal = async (brandGuidelines: BrandGuidelines, options: GenerationOptions) => {
+    setCurrentBrandName(brandGuidelines.brand_name);
+    setActiveOptions(options);
+    setAppState('loading');
+    
+    // Save state to sessionStorage for persistence across refresh
+    saveToSession(STORAGE_KEYS.APP_STATE, 'loading');
+    saveToSession(STORAGE_KEYS.BRAND_NAME, brandGuidelines.brand_name);
+    saveToSession(STORAGE_KEYS.FORM_DATA, brandGuidelines);
+    saveToSession(STORAGE_KEYS.OPTIONS, options);
+    saveToSession(STORAGE_KEYS.GENERATION_START, Date.now());
+    
+    // Track generation start time and step timestamps
+    const generationStartTime = Date.now();
+    const stepTimestamps: Record<string, { start: number; end?: number }> = {};
+    
+    // Initialize progress with timeline steps
+    const initialSteps = buildInitialSteps(options);
+    setProgress({
+      percentage: 0,
+      currentMessage: 'Initializing...',
+      steps: initialSteps,
+      startTime: generationStartTime,
+    });
+    
+    // Track the last step ID we were working on
+    let lastStepId: string | null = null;
+
+    await generateCompletePackageWithProgress(
+      brandGuidelines,
+      options,
+      // onProgress
+      (event) => {
+        const currentStepId = MESSAGE_TO_STEP_ID[event.message];
+        const now = Date.now();
+        
+        // If we're "Finalizing assets", mark all steps as complete
+        if (currentStepId === 'finalizing') {
+          // Complete the last step
+          if (lastStepId && stepTimestamps[lastStepId] && !stepTimestamps[lastStepId].end) {
+            stepTimestamps[lastStepId].end = now;
+          }
+          
+          // Build final steps with all timestamps
+          const finalSteps = buildInitialSteps(options).map(step => ({
+            ...step,
+            status: 'completed' as const,
+            startTime: stepTimestamps[step.id]?.start,
+            endTime: stepTimestamps[step.id]?.end || now,
+          }));
+          
+          setProgress({
+            percentage: 100,
+            currentMessage: 'Finalizing assets...',
+            steps: finalSteps,
+            startTime: generationStartTime,
+          });
+          return;
+        }
+        
+        // When we move to a new step, mark the previous step as completed
+        if (lastStepId && lastStepId !== currentStepId) {
+          if (stepTimestamps[lastStepId] && !stepTimestamps[lastStepId].end) {
+            stepTimestamps[lastStepId].end = now;
+          }
+        }
+        
+        // Record start time for current step
+        if (currentStepId && !stepTimestamps[currentStepId]) {
+          stepTimestamps[currentStepId] = { start: now };
+        }
+        
+        lastStepId = currentStepId;
+        
+        // Build updated steps with timestamps
+        const updatedSteps = buildInitialSteps(options).map(step => {
+          const timestamps = stepTimestamps[step.id];
+          let status: 'pending' | 'in_progress' | 'completed' = 'pending';
+          
+          if (timestamps?.end) {
+            status = 'completed';
+          } else if (step.id === currentStepId) {
+            status = 'in_progress';
+          }
+          
+          return {
+            ...step,
+            status,
+            startTime: timestamps?.start,
+            endTime: timestamps?.end,
+          };
+        });
+        
+        setProgress({
+          percentage: event.percentage,
+          currentMessage: event.message,
+          steps: updatedSteps,
+          startTime: generationStartTime,
+        });
+      },
+      // onComplete
+      (result) => {
+        setAssetPackage(result);
+        setAppState('results');
+        setProgress(null);
+        
+        // Save results to sessionStorage
+        saveToSession(STORAGE_KEYS.APP_STATE, 'results');
+        saveToSession(STORAGE_KEYS.ASSET_PACKAGE, result);
+        // Clear generation start time since we're done
+        sessionStorage.removeItem(STORAGE_KEYS.GENERATION_START);
+        
+        toast.success(`Successfully generated ${result.assets.length} brand assets!`);
+      },
+      // onError
+      (error) => {
+        console.error('Generation error:', error);
+        toast.error(error || 'Failed to generate assets');
+        setAppState('form');
+        setProgress(null);
+        
+        // Clear generation state on error
+        clearGenerationState();
+      }
+    );
+  };
+
+  // Public submit handler - called from form
+  const handleSubmit = (brandGuidelines: BrandGuidelines, options: GenerationOptions) => {
+    handleSubmitInternal(brandGuidelines, options);
   };
 
   const handleReset = () => {
     setAssetPackage(null);
     setCurrentBrandName('');
     setAppState('form');
+    setProgress(null);
+    setActiveOptions(null);
+    
+    // Clear all session storage
+    clearGenerationState();
   };
+
+  // Auto-resume generation if we were in the middle of it (page was refreshed)
+  useEffect(() => {
+    if (shouldAutoResume && isApiHealthy && savedFormData && activeOptions) {
+      // Prevent multiple auto-resumes
+      setShouldAutoResume(false);
+      
+      toast.loading(`Resuming generation for "${currentBrandName}"...`, {
+        duration: 2000,
+      });
+      
+      // Small delay to ensure UI is ready
+      const timer = setTimeout(() => {
+        handleSubmitInternal(savedFormData, activeOptions);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [shouldAutoResume, isApiHealthy, savedFormData, activeOptions, currentBrandName, handleSubmitInternal]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50">
@@ -166,7 +428,7 @@ export default function App() {
         )}
         
         {appState === 'loading' && (
-          <LoadingState brandName={currentBrandName} />
+          <LoadingState brandName={currentBrandName} progress={progress || undefined} />
         )}
         
         {appState === 'results' && assetPackage && (

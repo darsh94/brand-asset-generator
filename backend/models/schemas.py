@@ -127,6 +127,40 @@ class MarketingRequest(BaseModel):
     )
 
 
+class ValidationResult(BaseModel):
+    """Result of asset validation against brand guidelines."""
+    passed: bool = Field(..., description="Whether the asset passed validation")
+    score: int = Field(..., ge=0, le=100, description="Validation score 0-100")
+    issues: list[str] = Field(default=[], description="List of issues found")
+    critique: str = Field(..., description="Detailed critique of the asset")
+    regeneration_guidance: Optional[str] = Field(
+        None, 
+        description="Specific guidance for regeneration if failed"
+    )
+
+
+class AssetIteration(BaseModel):
+    """Record of a single iteration in the self-correcting loop."""
+    iteration_number: int = Field(..., ge=1, le=3, description="Iteration number (1-3)")
+    image_data: str = Field(..., description="Base64 encoded image data for this iteration")
+    mime_type: str = Field(default="image/png", description="MIME type of the image")
+    validation: ValidationResult = Field(..., description="Validation result for this iteration")
+    status: str = Field(..., description="Status: 'failed', 'passed', or 'final'")
+
+
+class ConsistencyScore(BaseModel):
+    """Brand consistency score breakdown for an asset."""
+    overall_score: int = Field(..., ge=0, le=100, description="Overall consistency score 0-100")
+    color_adherence: int = Field(..., ge=0, le=100, description="How well colors match brand palette")
+    typography_compliance: int = Field(..., ge=0, le=100, description="Typography alignment with brand")
+    tone_alignment: int = Field(..., ge=0, le=100, description="Visual tone matches brand voice")
+    layout_quality: int = Field(..., ge=0, le=100, description="Layout completeness and balance")
+    brand_recognition: int = Field(..., ge=0, le=100, description="Brand is clearly identifiable")
+    explanation: str = Field(..., description="Brief explanation of the score")
+    strengths: list[str] = Field(default=[], description="Key strengths of the asset")
+    improvements: list[str] = Field(default=[], description="Suggested improvements")
+
+
 class GeneratedAsset(BaseModel):
     """Response model for a generated asset."""
     asset_type: AssetType
@@ -136,6 +170,31 @@ class GeneratedAsset(BaseModel):
     width: int = Field(..., description="Image width in pixels")
     height: int = Field(..., description="Image height in pixels")
     description: Optional[str] = Field(None, description="AI-generated description of the asset")
+    consistency_score: Optional[ConsistencyScore] = Field(None, description="Brand consistency evaluation")
+    
+    # Self-correcting loop fields
+    iteration_count: int = Field(default=1, description="Number of iterations taken (1-3)")
+    iteration_history: list[AssetIteration] = Field(
+        default=[], 
+        description="History of all iterations showing the self-correction process"
+    )
+    self_corrected: bool = Field(
+        default=False, 
+        description="Whether the asset went through self-correction"
+    )
+
+
+class BatchConsistencyScore(BaseModel):
+    """Aggregate consistency score for the entire asset package."""
+    overall_score: int = Field(..., ge=0, le=100, description="Average consistency across all assets")
+    color_adherence: int = Field(..., ge=0, le=100, description="Average color adherence")
+    typography_compliance: int = Field(..., ge=0, le=100, description="Average typography compliance")
+    tone_alignment: int = Field(..., ge=0, le=100, description="Average tone alignment")
+    layout_quality: int = Field(..., ge=0, le=100, description="Average layout quality")
+    brand_recognition: int = Field(..., ge=0, le=100, description="Average brand recognition")
+    summary: str = Field(..., description="Executive summary of brand consistency")
+    top_performers: list[str] = Field(default=[], description="Best performing asset names")
+    needs_attention: list[str] = Field(default=[], description="Assets that may need revision")
 
 
 class AssetPackage(BaseModel):
@@ -149,6 +208,10 @@ class AssetPackage(BaseModel):
     generation_notes: Optional[str] = Field(
         None,
         description="Notes about the generation process and design decisions"
+    )
+    batch_score: Optional[BatchConsistencyScore] = Field(
+        None,
+        description="Aggregate consistency score for all assets"
     )
 
 

@@ -68,6 +68,14 @@ input[type="color"]::-webkit-color-swatch {
   .animate-scale-in {
     animation: scaleIn 0.3s ease-out;
   }
+  
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }
 
 @keyframes fadeIn {
@@ -94,6 +102,15 @@ input[type="color"]::-webkit-color-swatch {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
   }
 }
 

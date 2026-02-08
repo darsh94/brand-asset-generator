@@ -6,10 +6,12 @@
  */
 
 import { useState } from 'react';
-import { Download, Eye, X, Package, Image, FileText, Mail, Megaphone, Presentation } from 'lucide-react';
+import { Download, Eye, X, Package, Image, FileText, Mail, Megaphone, Presentation, Info, RefreshCw } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import type { AssetPackage, GeneratedAsset, AssetType } from '../types';
+import { OverallScoreBadge, AssetScoreCard, BatchScoreCard } from './ConsistencyScore';
+import IterationHistory from './IterationHistory';
 
 interface AssetGalleryProps {
   assetPackage: AssetPackage;
@@ -44,6 +46,11 @@ export default function AssetGallery({ assetPackage, onReset }: AssetGalleryProp
   const [selectedAsset, setSelectedAsset] = useState<GeneratedAsset | null>(null);
   const [activeFilter, setActiveFilter] = useState<AssetType | 'all'>('all');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showScoreDetails, setShowScoreDetails] = useState<string | null>(null);
+  const [showIterationHistory, setShowIterationHistory] = useState<GeneratedAsset | null>(null);
+
+  // Count self-corrected assets
+  const selfCorrectedCount = assetPackage.assets.filter(a => a.self_corrected).length;
 
   // Group assets by type
   const assetsByType = assetPackage.assets.reduce((acc, asset) => {
@@ -109,6 +116,26 @@ export default function AssetGallery({ assetPackage, onReset }: AssetGalleryProp
     }
   };
 
+  // Download assets by category as ZIP
+  const downloadCategory = async (type: AssetType) => {
+    const assets = assetsByType[type];
+    if (!assets || assets.length === 0) return;
+
+    const zip = new JSZip();
+    const folder = zip.folder(`${assetPackage.brand_name.replace(/\s+/g, '-')}_${type}`);
+
+    if (!folder) return;
+
+    for (const asset of assets) {
+      const extension = asset.mime_type.split('/')[1] || 'png';
+      const filename = `${asset.asset_name}.${extension}`;
+      folder.file(filename, asset.image_data, { base64: true });
+    }
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveAs(content, `${assetPackage.brand_name.replace(/\s+/g, '-')}_${type}.zip`);
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
@@ -120,6 +147,12 @@ export default function AssetGallery({ assetPackage, onReset }: AssetGalleryProp
             </h2>
             <p className="text-gray-500 mt-1">
               {assetPackage.assets.length} assets generated successfully
+              {selfCorrectedCount > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                  <RefreshCw className="w-3 h-3" />
+                  {selfCorrectedCount} self-corrected
+                </span>
+              )}
             </p>
           </div>
           <div className="flex gap-3">
@@ -148,32 +181,55 @@ export default function AssetGallery({ assetPackage, onReset }: AssetGalleryProp
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setActiveFilter('all')}
-          className={`px-4 py-2 rounded-xl font-medium transition-all ${
-            activeFilter === 'all'
-              ? 'bg-gray-800 text-white'
-              : 'bg-white text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          All ({assetPackage.assets.length})
-        </button>
-        {Object.entries(assetsByType).map(([type, assets]) => (
+      {/* Batch Consistency Score */}
+      {assetPackage.batch_score && (
+        <BatchScoreCard 
+          score={assetPackage.batch_score} 
+          assetCount={assetPackage.assets.length} 
+        />
+      )}
+
+      {/* Filter Tabs with Download Options */}
+      <div className="bg-white rounded-2xl shadow-lg p-4">
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm text-gray-500 mr-2">Filter:</span>
           <button
-            key={type}
-            onClick={() => setActiveFilter(type as AssetType)}
-            className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 ${
-              activeFilter === type
-                ? `bg-gradient-to-r ${ASSET_TYPE_COLORS[type as AssetType]} text-white`
-                : 'bg-white text-gray-600 hover:bg-gray-50'
+            onClick={() => setActiveFilter('all')}
+            className={`px-4 py-2 rounded-xl font-medium transition-all ${
+              activeFilter === 'all'
+                ? 'bg-gray-800 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {ASSET_TYPE_ICONS[type as AssetType]}
-            {ASSET_TYPE_LABELS[type as AssetType]} ({assets.length})
+            All ({assetPackage.assets.length})
           </button>
-        ))}
+          {Object.entries(assetsByType).map(([type, assets]) => (
+            <div key={type} className="flex items-center">
+              <button
+                onClick={() => setActiveFilter(type as AssetType)}
+                className={`px-4 py-2 rounded-l-xl font-medium transition-all flex items-center gap-2 ${
+                  activeFilter === type
+                    ? `bg-gradient-to-r ${ASSET_TYPE_COLORS[type as AssetType]} text-white`
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {ASSET_TYPE_ICONS[type as AssetType]}
+                {ASSET_TYPE_LABELS[type as AssetType]} ({assets.length})
+              </button>
+              <button
+                onClick={() => downloadCategory(type as AssetType)}
+                className={`px-2 py-2 rounded-r-xl border-l transition-all ${
+                  activeFilter === type
+                    ? `bg-gradient-to-r ${ASSET_TYPE_COLORS[type as AssetType]} text-white border-white/20`
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200'
+                }`}
+                title={`Download ${ASSET_TYPE_LABELS[type as AssetType]}`}
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Asset Grid */}
@@ -215,20 +271,83 @@ export default function AssetGallery({ assetPackage, onReset }: AssetGalleryProp
                 {ASSET_TYPE_ICONS[asset.asset_type]}
                 {ASSET_TYPE_LABELS[asset.asset_type]}
               </div>
+
+              {/* Quick Download Button - Always Visible */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadAsset(asset);
+                }}
+                className="absolute top-3 right-3 p-2 bg-white/90 hover:bg-white rounded-full shadow-md transition-all hover:scale-110"
+                title="Download"
+              >
+                <Download className="w-4 h-4 text-gray-700" />
+              </button>
+
+              {/* Self-Correction Badge - Show if asset went through iterations */}
+              {asset.self_corrected && asset.iteration_history && asset.iteration_history.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowIterationHistory(asset);
+                  }}
+                  className="absolute top-12 right-3 flex items-center gap-1 px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md transition-all text-xs font-medium"
+                  title="View self-correction history"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  {asset.iteration_count}x
+                </button>
+              )}
+
+              {/* Score Badge */}
+              {asset.consistency_score && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowScoreDetails(showScoreDetails === asset.asset_name ? null : asset.asset_name);
+                  }}
+                  className="absolute bottom-3 right-3 flex items-center gap-1 px-2 py-1 bg-white/90 hover:bg-white rounded-full shadow-md transition-all text-xs font-medium"
+                  title="View consistency score"
+                >
+                  <span className={`${
+                    asset.consistency_score.overall_score >= 85 ? 'text-green-600' :
+                    asset.consistency_score.overall_score >= 70 ? 'text-blue-600' :
+                    asset.consistency_score.overall_score >= 55 ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`}>
+                    {asset.consistency_score.overall_score}
+                  </span>
+                  <Info className="w-3 h-3 text-gray-500" />
+                </button>
+              )}
             </div>
 
             {/* Asset Info */}
             <div className="p-4">
-              <h3 className="font-medium text-gray-800 truncate">
-                {asset.asset_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                {asset.width} × {asset.height}px
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-800 truncate">
+                    {asset.asset_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {asset.width} × {asset.height}px
+                  </p>
+                </div>
+                {asset.consistency_score && (
+                  <OverallScoreBadge score={asset.consistency_score.overall_score} size="sm" />
+                )}
+              </div>
               {asset.description && (
                 <p className="text-sm text-gray-400 mt-2 line-clamp-2">
                   {asset.description}
                 </p>
+              )}
+
+              {/* Expanded Score Details */}
+              {showScoreDetails === asset.asset_name && asset.consistency_score && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <AssetScoreCard score={asset.consistency_score} compact={false} />
+                </div>
               )}
             </div>
           </div>
@@ -276,16 +395,40 @@ export default function AssetGallery({ assetPackage, onReset }: AssetGalleryProp
               <p className="text-sm text-white/70">
                 {selectedAsset.width} × {selectedAsset.height}px • {selectedAsset.description}
               </p>
-              <button
-                onClick={() => downloadAsset(selectedAsset)}
-                className="mt-3 px-4 py-2 bg-white text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors inline-flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </button>
+              <div className="flex items-center gap-3 mt-3">
+                <button
+                  onClick={() => downloadAsset(selectedAsset)}
+                  className="px-4 py-2 bg-white text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors inline-flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+                {selectedAsset.self_corrected && selectedAsset.iteration_history && selectedAsset.iteration_history.length > 1 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAsset(null);
+                      setShowIterationHistory(selectedAsset);
+                    }}
+                    className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors inline-flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    View {selectedAsset.iteration_count} Iterations
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Iteration History Modal */}
+      {showIterationHistory && showIterationHistory.iteration_history && (
+        <IterationHistory
+          iterations={showIterationHistory.iteration_history}
+          assetName={showIterationHistory.asset_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+          onClose={() => setShowIterationHistory(null)}
+        />
       )}
     </div>
   );

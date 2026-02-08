@@ -8,13 +8,16 @@ Built for the Gemini 3 Hackathon 2026.
 """
 
 import os
+import json
+import asyncio
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from dotenv import load_dotenv
+import fitz  # PyMuPDF
 
 from models import (
     BrandGuidelines,
@@ -25,6 +28,7 @@ from models import (
     MarketingRequest,
     AssetPackage,
     HealthResponse,
+    GeneratedAsset,
 )
 from services import AssetGenerator
 
@@ -132,6 +136,78 @@ async def root():
 async def health_check():
     """Health check endpoint for monitoring."""
     return HealthResponse(status="healthy", version="1.0.0")
+
+
+# ============================================================================
+# PDF Upload Endpoint
+# ============================================================================
+
+@app.post("/api/upload-pdf", tags=["PDF Upload"])
+async def upload_pdf(
+    file: UploadFile = File(...),
+    generator: AssetGenerator = Depends(get_asset_generator)
+):
+    """
+    Upload a PDF file containing brand guidelines and extract brand information.
+    
+    The PDF is parsed and analyzed using AI to extract:
+    - Brand name
+    - Colors (primary, secondary, accent)
+    - Typography (fonts)
+    - Brand tone and values
+    - Target audience
+    - Industry
+    - Tagline
+    - Additional context
+    
+    Returns extracted data that can be used to auto-fill the brand form.
+    """
+    # Validate file type
+    if not file.filename or not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files are accepted"
+        )
+    
+    try:
+        # Read file content
+        content = await file.read()
+        
+        # Extract text from PDF using PyMuPDF
+        pdf_document = fitz.open(stream=content, filetype="pdf")
+        text_content = []
+        
+        for page_num in range(pdf_document.page_count):
+            page = pdf_document[page_num]
+            text_content.append(page.get_text())
+        
+        pdf_document.close()
+        
+        # Combine all text
+        full_text = "\n\n".join(text_content)
+        
+        if not full_text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract text from PDF. The PDF might be image-based or empty."
+            )
+        
+        # Use Gemini to extract brand information
+        extracted_data = await generator.gemini.extract_brand_from_pdf(full_text)
+        
+        return {
+            "success": True,
+            "message": "Brand information extracted successfully",
+            "data": extracted_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing PDF: {str(e)}"
+        )
 
 
 # ============================================================================
@@ -304,6 +380,132 @@ async def generate_complete_package(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/generate/complete-package-stream", tags=["Asset Generation"])
+async def generate_complete_package_stream(
+    brand_guidelines: BrandGuidelines,
+    include_logos: bool = True,
+    include_social: bool = True,
+    include_presentation: bool = True,
+    include_email: bool = True,
+    include_marketing: bool = True,
+    generator: AssetGenerator = Depends(get_asset_generator)
+):
+    """
+    Generate a complete brand asset package with progress streaming.
+    
+    This endpoint uses Server-Sent Events (SSE) to stream progress updates
+    as each asset category is generated.
+    
+    Events:
+    - progress: Contains current step, total steps, percentage, and message
+    - complete: Contains the final AssetPackage
+    - error: Contains error details if something fails
+    """
+    
+    async def event_generator() -> AsyncGenerator[str, None]:
+        try:
+            # Determine which categories are enabled
+            categories = []
+            if include_logos:
+                categories.append(("logos", "Creating logo variations"))
+            if include_social:
+                categories.append(("social", "Generating social media templates"))
+            if include_presentation:
+                categories.append(("presentation", "Designing presentation slides"))
+            if include_email:
+                categories.append(("email", "Crafting email templates"))
+            if include_marketing:
+                categories.append(("marketing", "Building marketing materials"))
+            
+            total_steps = len(categories) + 1  # +1 for brand analysis
+            completed_steps = 0
+            
+            # Step 1: Brand Analysis - send "starting" message first
+            yield f"data: {json.dumps({'type': 'progress', 'step': 1, 'total': total_steps, 'percentage': 0, 'message': 'Analyzing brand identity'})}\n\n"
+            
+            brand_analysis = await generator._get_brand_analysis(brand_guidelines)
+            
+            # Brand analysis complete
+            completed_steps = 1
+            
+            # Generate each category sequentially for progress tracking
+            all_assets = []
+            generation_notes = []
+            
+            for idx, (category_key, category_message) in enumerate(categories):
+                current_step = idx + 2  # +2 because step 1 is brand analysis
+                
+                # Calculate percentage based on COMPLETED steps (before this one starts)
+                percentage = int((completed_steps / total_steps) * 100)
+                yield f"data: {json.dumps({'type': 'progress', 'step': current_step, 'total': total_steps, 'percentage': percentage, 'message': category_message})}\n\n"
+                
+                try:
+                    result = await generator.generate_category(
+                        brand_guidelines=brand_guidelines,
+                        category=category_key
+                    )
+                    if result:
+                        all_assets.extend(result.assets)
+                        if result.generation_notes:
+                            generation_notes.append(result.generation_notes)
+                except Exception as e:
+                    generation_notes.append(f"Error generating {category_key}: {str(e)}")
+                
+                # Mark this step as completed
+                completed_steps += 1
+            
+            # Scoring step
+            yield f"data: {json.dumps({'type': 'progress', 'step': total_steps, 'total': total_steps + 1, 'percentage': 90, 'message': 'Scoring brand consistency'})}\n\n"
+            
+            # Score each asset
+            from models.schemas import ConsistencyScore
+            scored_assets = []
+            for asset in all_assets:
+                score = await generator._score_asset(asset, brand_guidelines)
+                scored_asset = GeneratedAsset(
+                    asset_type=asset.asset_type,
+                    asset_name=asset.asset_name,
+                    image_data=asset.image_data,
+                    mime_type=asset.mime_type,
+                    width=asset.width,
+                    height=asset.height,
+                    description=asset.description,
+                    consistency_score=score
+                )
+                scored_assets.append(scored_asset)
+            
+            # Compute batch score
+            batch_score = await generator._compute_batch_score(scored_assets)
+            
+            # Finalize
+            yield f"data: {json.dumps({'type': 'progress', 'step': total_steps + 1, 'total': total_steps + 1, 'percentage': 100, 'message': 'Finalizing assets'})}\n\n"
+            
+            # Create final package
+            final_package = AssetPackage(
+                brand_name=brand_guidelines.brand_name,
+                assets=scored_assets,
+                brand_analysis=brand_analysis,
+                generation_notes=" | ".join(generation_notes),
+                batch_score=batch_score
+            )
+            
+            # Send complete event with the final data
+            yield f"data: {json.dumps({'type': 'complete', 'data': final_package.model_dump()})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 # ============================================================================

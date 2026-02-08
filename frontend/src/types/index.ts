@@ -64,6 +64,46 @@ export interface MarketingRequest {
   material_types: string[];
 }
 
+export interface ValidationResult {
+  passed: boolean;
+  score: number;
+  issues: string[];
+  critique: string;
+  regeneration_guidance?: string;
+}
+
+export interface AssetIteration {
+  iteration_number: number;
+  image_data: string;
+  mime_type: string;
+  validation: ValidationResult;
+  status: 'failed' | 'passed' | 'final';
+}
+
+export interface ConsistencyScore {
+  overall_score: number;
+  color_adherence: number;
+  typography_compliance: number;
+  tone_alignment: number;
+  layout_quality: number;
+  brand_recognition: number;
+  explanation: string;
+  strengths: string[];
+  improvements: string[];
+}
+
+export interface BatchConsistencyScore {
+  overall_score: number;
+  color_adherence: number;
+  typography_compliance: number;
+  tone_alignment: number;
+  layout_quality: number;
+  brand_recognition: number;
+  summary: string;
+  top_performers: string[];
+  needs_attention: string[];
+}
+
 export interface GeneratedAsset {
   asset_type: AssetType;
   asset_name: string;
@@ -72,6 +112,11 @@ export interface GeneratedAsset {
   width: number;
   height: number;
   description?: string;
+  consistency_score?: ConsistencyScore;
+  // Self-correcting loop fields
+  iteration_count: number;
+  iteration_history: AssetIteration[];
+  self_corrected: boolean;
 }
 
 export interface AssetPackage {
@@ -79,6 +124,7 @@ export interface AssetPackage {
   assets: GeneratedAsset[];
   brand_analysis: string;
   generation_notes?: string;
+  batch_score?: BatchConsistencyScore;
 }
 
 export interface GenerationOptions {

@@ -13,6 +13,10 @@ from models.schemas import (
     GeneratedAsset,
     AssetPackage,
     HealthResponse,
+    ConsistencyScore,
+    BatchConsistencyScore,
+    ValidationResult,
+    AssetIteration,
 )
 
 __all__ = [
@@ -28,4 +32,8 @@ __all__ = [
     "GeneratedAsset",
     "AssetPackage",
     "HealthResponse",
+    "ConsistencyScore",
+    "BatchConsistencyScore",
+    "ValidationResult",
+    "AssetIteration",
 ]

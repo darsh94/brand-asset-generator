@@ -156,4 +156,109 @@ export async function generateCompletePackage(
   }
 }
 
+/**
+ * Progress event from SSE stream
+ */
+export interface ProgressEvent {
+  type: 'progress';
+  step: number;
+  total: number;
+  percentage: number;
+  message: string;
+}
+
+/**
+ * Complete event from SSE stream
+ */
+export interface CompleteEvent {
+  type: 'complete';
+  data: AssetPackage;
+}
+
+/**
+ * Error event from SSE stream
+ */
+export interface ErrorEvent {
+  type: 'error';
+  message: string;
+}
+
+export type StreamEvent = ProgressEvent | CompleteEvent | ErrorEvent;
+
+/**
+ * Generate complete asset package with progress streaming
+ * Uses Server-Sent Events (SSE) to receive real-time progress updates
+ */
+export async function generateCompletePackageWithProgress(
+  brandGuidelines: BrandGuidelines,
+  options: GenerationOptions,
+  onProgress: (event: ProgressEvent) => void,
+  onComplete: (data: AssetPackage) => void,
+  onError: (error: string) => void
+): Promise<void> {
+  const params = new URLSearchParams();
+  params.append('include_logos', String(options.include_logos));
+  params.append('include_social', String(options.include_social));
+  params.append('include_presentation', String(options.include_presentation));
+  params.append('include_email', String(options.include_email));
+  params.append('include_marketing', String(options.include_marketing));
+  
+  const url = `http://localhost:8000/api/generate/complete-package-stream?${params.toString()}`;
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(brandGuidelines),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+    
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body');
+    }
+    
+    const decoder = new TextDecoder();
+    let buffer = '';
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Process complete SSE events
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const eventData = JSON.parse(line.slice(6)) as StreamEvent;
+            
+            if (eventData.type === 'progress') {
+              onProgress(eventData);
+            } else if (eventData.type === 'complete') {
+              onComplete(eventData.data);
+            } else if (eventData.type === 'error') {
+              onError(eventData.message);
+            }
+          } catch (parseError) {
+            console.error('Failed to parse SSE event:', parseError);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    onError(message);
+  }
+}
+
 export default api;

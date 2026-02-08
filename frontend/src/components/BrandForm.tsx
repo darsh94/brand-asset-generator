@@ -3,12 +3,30 @@
  * 
  * A comprehensive form for inputting brand guidelines including
  * colors, fonts, tone, and target audience.
+ * Supports PDF upload for auto-filling form fields.
  */
 
 import { useForm } from 'react-hook-form';
 import { Palette, Type, Users, Building2, Heart, Sparkles } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import type { BrandGuidelines, GenerationOptions } from '../types';
 import { FONT_OPTIONS, INDUSTRY_OPTIONS, TONE_OPTIONS } from '../types';
+import PdfUpload from './PdfUpload';
+
+interface ExtractedBrandData {
+  brand_name?: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  accent_color?: string | null;
+  primary_font?: string | null;
+  secondary_font?: string | null;
+  brand_tone?: string | null;
+  target_audience?: string | null;
+  industry?: string | null;
+  brand_values?: string | null;
+  tagline?: string | null;
+  additional_context?: string | null;
+}
 
 interface BrandFormProps {
   onSubmit: (data: BrandGuidelines, options: GenerationOptions) => void;
@@ -16,7 +34,7 @@ interface BrandFormProps {
 }
 
 export default function BrandForm({ onSubmit, isLoading }: BrandFormProps) {
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<BrandGuidelines & GenerationOptions>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<BrandGuidelines & GenerationOptions & { custom_industry?: string }>({
     defaultValues: {
       brand_name: '',
       primary_color: '#3B82F6',
@@ -43,6 +61,105 @@ export default function BrandForm({ onSubmit, isLoading }: BrandFormProps) {
   const secondaryColor = watch('secondary_color');
   const accentColor = watch('accent_color');
   const selectedIndustry = watch('industry');
+
+  // Handle PDF extraction data
+  const handlePdfDataExtracted = (data: ExtractedBrandData) => {
+    let fieldsUpdated = 0;
+
+    // Helper to find best matching option from a list
+    const findBestMatch = (value: string | null | undefined, options: readonly string[]): string | null => {
+      if (!value) return null;
+      const lowerValue = value.toLowerCase();
+      // Exact match
+      const exact = options.find(opt => opt.toLowerCase() === lowerValue);
+      if (exact) return exact;
+      // Partial match
+      const partial = options.find(opt => 
+        opt.toLowerCase().includes(lowerValue) || lowerValue.includes(opt.toLowerCase())
+      );
+      return partial || null;
+    };
+
+    // Set each field if it has a value
+    if (data.brand_name) {
+      setValue('brand_name', data.brand_name);
+      fieldsUpdated++;
+    }
+
+    if (data.primary_color) {
+      setValue('primary_color', data.primary_color);
+      fieldsUpdated++;
+    }
+
+    if (data.secondary_color) {
+      setValue('secondary_color', data.secondary_color);
+      fieldsUpdated++;
+    }
+
+    if (data.accent_color) {
+      setValue('accent_color', data.accent_color);
+      fieldsUpdated++;
+    }
+
+    if (data.primary_font) {
+      const matchedFont = findBestMatch(data.primary_font, FONT_OPTIONS);
+      if (matchedFont) {
+        setValue('primary_font', matchedFont);
+        fieldsUpdated++;
+      }
+    }
+
+    if (data.secondary_font) {
+      const matchedFont = findBestMatch(data.secondary_font, FONT_OPTIONS);
+      if (matchedFont) {
+        setValue('secondary_font', matchedFont);
+        fieldsUpdated++;
+      }
+    }
+
+    if (data.brand_tone) {
+      const matchedTone = findBestMatch(data.brand_tone, TONE_OPTIONS);
+      if (matchedTone) {
+        setValue('brand_tone', matchedTone);
+        fieldsUpdated++;
+      }
+    }
+
+    if (data.target_audience) {
+      setValue('target_audience', data.target_audience);
+      fieldsUpdated++;
+    }
+
+    if (data.industry) {
+      const matchedIndustry = findBestMatch(data.industry, INDUSTRY_OPTIONS);
+      if (matchedIndustry) {
+        setValue('industry', matchedIndustry);
+        fieldsUpdated++;
+      } else {
+        // Set to "Other" and fill custom field
+        setValue('industry', 'Other');
+        setValue('custom_industry', data.industry);
+        fieldsUpdated++;
+      }
+    }
+
+    if (data.brand_values) {
+      setValue('brand_values', data.brand_values);
+      fieldsUpdated++;
+    }
+
+    if (data.tagline) {
+      setValue('tagline', data.tagline);
+      fieldsUpdated++;
+    }
+
+    if (data.additional_context) {
+      setValue('additional_context', data.additional_context);
+      fieldsUpdated++;
+    }
+
+    toast.success(`Auto-filled ${fieldsUpdated} fields from PDF`);
+  };
 
   const onFormSubmit = (data: BrandGuidelines & GenerationOptions & { custom_industry?: string }) => {
     const { 
@@ -74,6 +191,9 @@ export default function BrandForm({ onSubmit, isLoading }: BrandFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8">
+      {/* PDF Upload Section */}
+      <PdfUpload onDataExtracted={handlePdfDataExtracted} />
+
       {/* Brand Identity Section */}
       <section className="bg-white rounded-2xl shadow-lg p-6 animate-slide-up">
         <div className="flex items-center gap-3 mb-6">

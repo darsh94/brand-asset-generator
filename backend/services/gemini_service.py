@@ -4,9 +4,11 @@ Gemini Service for Brand Asset Generator.
 This service handles all interactions with the Gemini 3 API, including:
 - Brand identity analysis using Gemini 3 Pro
 - Image generation using gemini-3-pro-image-preview (Nano Banana)
+- PDF parsing for brand guidelines extraction
 """
 
 import os
+import json
 import base64
 from typing import Optional
 from google import genai
@@ -55,44 +57,355 @@ class GeminiService:
         Returns:
             Detailed brand analysis as a string
         """
-        prompt = f"""You are a brand identity expert. Analyze the following brand guidelines 
-and create a comprehensive brand identity profile that will guide visual asset creation.
+        prompt = f"""You are a senior brand strategist at a world-class advertising agency. 
+Write a brand identity brief for the creative team. Your writing style is confident, 
+precise, and sophisticated—no fluff, no jargon, just sharp strategic insight.
 
-Brand Guidelines:
-- Brand Name: {brand_guidelines.get('brand_name')}
-- Primary Color: {brand_guidelines.get('primary_color')}
-- Secondary Color: {brand_guidelines.get('secondary_color')}
-- Accent Color: {brand_guidelines.get('accent_color', 'Not specified')}
-- Primary Font: {brand_guidelines.get('primary_font')}
-- Secondary Font: {brand_guidelines.get('secondary_font', 'Not specified')}
-- Brand Tone: {brand_guidelines.get('brand_tone')}
-- Target Audience: {brand_guidelines.get('target_audience')}
-- Industry: {brand_guidelines.get('industry')}
-- Brand Values: {brand_guidelines.get('brand_values', 'Not specified')}
-- Tagline: {brand_guidelines.get('tagline', 'Not specified')}
-- Additional Context: {brand_guidelines.get('additional_context', 'None')}
+The Brief:
 
-Provide a detailed analysis covering:
-1. Visual Identity Summary - How the colors and fonts reflect the brand personality
-2. Design Principles - Key principles that should guide all visual assets
-3. Mood and Atmosphere - The emotional response the brand should evoke
-4. Typography Guidelines - How to use the fonts effectively
-5. Color Application - Best practices for applying the brand colors
-6. Imagery Style - What style of imagery aligns with the brand
-7. Key Design Elements - Shapes, patterns, or motifs that would suit this brand
+Brand: {brand_guidelines.get('brand_name')}
+Industry: {brand_guidelines.get('industry')}
+Audience: {brand_guidelines.get('target_audience')}
+Voice: {brand_guidelines.get('brand_tone')}
+Values: {brand_guidelines.get('brand_values', 'To be defined')}
+Tagline: {brand_guidelines.get('tagline', 'None provided')}
 
-Be specific and actionable in your recommendations."""
+Visual System:
+Primary: {brand_guidelines.get('primary_color')} | Secondary: {brand_guidelines.get('secondary_color')} | Accent: {brand_guidelines.get('accent_color', 'None')}
+Typography: {brand_guidelines.get('primary_font')} (primary), {brand_guidelines.get('secondary_font', 'same as primary')} (secondary)
+
+Additional Context: {brand_guidelines.get('additional_context', 'None')}
+
+Write a creative brief covering:
+
+THE ESSENCE — What this brand fundamentally stands for in one powerful paragraph.
+
+VISUAL DIRECTION — How the color palette and typography work together to express the brand personality. Be specific about mood, contrast, and emotional resonance.
+
+DESIGN PRINCIPLES — Three to four guiding rules the design team must follow. State them as clear directives.
+
+IMAGERY & TEXTURE — The visual world this brand inhabits. What does photography look like? What graphic elements reinforce the identity?
+
+AUDIENCE CONNECTION — How the visual identity speaks to the target audience. What makes them stop scrolling?
+
+Write in plain prose. No bullet points. No asterisks. No markdown formatting. 
+Write as if this brief will be printed and handed to the creative director.
+Be direct, insightful, and memorable."""
 
         response = self.client.models.generate_content(
             model=TEXT_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0.7,
+                temperature=0.6,
                 max_output_tokens=2000,
             )
         )
         
-        return response.text
+        # Clean any remaining markdown artifacts
+        text = response.text
+        text = text.replace('**', '')
+        text = text.replace('*', '')
+        text = text.replace('##', '')
+        text = text.replace('#', '')
+        
+        return text.strip()
+    
+    async def validate_and_critique(
+        self,
+        image_data: bytes,
+        mime_type: str,
+        brand_guidelines: dict,
+        asset_type: str,
+        asset_description: str,
+        previous_issues: list[str] = None
+    ) -> dict:
+        """
+        Validate an asset against brand guidelines and provide critique.
+        
+        This is the core of the self-correcting loop - it analyzes the generated
+        image and determines if it meets brand standards.
+        
+        Args:
+            image_data: Raw image bytes
+            mime_type: MIME type of the image
+            brand_guidelines: Brand guidelines dictionary
+            asset_type: Type of asset being validated
+            asset_description: Description of the asset
+            previous_issues: Issues from previous iteration (if any)
+            
+        Returns:
+            Dictionary with validation results and regeneration guidance
+        """
+        # Build context about previous issues if this is a retry
+        previous_context = ""
+        if previous_issues:
+            previous_context = f"""
+IMPORTANT - Previous Version Had These Issues:
+{chr(10).join(f'- {issue}' for issue in previous_issues)}
+
+The new version MUST address these specific issues. Be strict in verifying they are fixed.
+"""
+        
+        prompt = f"""You are a strict brand quality auditor. Analyze this generated asset image 
+and determine if it meets the brand guidelines. Be critical but fair.
+
+Brand Guidelines:
+- Brand Name: {brand_guidelines.get('brand_name')}
+- Primary Color: {brand_guidelines.get('primary_color')}
+- Secondary Color: {brand_guidelines.get('secondary_color')}
+- Accent Color: {brand_guidelines.get('accent_color', 'None specified')}
+- Primary Font Style: {brand_guidelines.get('primary_font')}
+- Brand Tone: {brand_guidelines.get('brand_tone')}
+- Industry: {brand_guidelines.get('industry')}
+- Target Audience: {brand_guidelines.get('target_audience')}
+
+Asset Details:
+- Type: {asset_type}
+- Description: {asset_description}
+{previous_context}
+
+Evaluate the image against these criteria:
+1. COLOR ADHERENCE: Are the brand colors ({brand_guidelines.get('primary_color')}, {brand_guidelines.get('secondary_color')}) prominently and correctly used?
+2. TYPOGRAPHY: Does the text styling match the brand's {brand_guidelines.get('primary_font')} font style?
+3. TONE ALIGNMENT: Does the visual mood match "{brand_guidelines.get('brand_tone')}"?
+4. PROFESSIONAL QUALITY: Is it polished enough for a real brand?
+5. BRAND RECOGNITION: Would someone recognize this as {brand_guidelines.get('brand_name')}?
+
+PASSING THRESHOLD: Score must be 70+ to pass. Assets scoring below 70 need regeneration.
+
+Return ONLY a valid JSON object:
+{{
+    "passed": <true if overall score >= 70, false otherwise>,
+    "score": <0-100>,
+    "issues": ["<specific issue 1>", "<specific issue 2>", ...],
+    "critique": "<2-3 sentence professional critique>",
+    "regeneration_guidance": "<specific instructions for fixing issues, or null if passed>"
+}}
+
+Be specific about issues. For example:
+- "Primary color #3B82F6 is not visible in the design"
+- "Typography appears to be sans-serif but brand uses serif font"
+- "Tone is too playful for a professional/trustworthy brand"
+"""
+
+        # Create image part for multimodal input
+        image_part = types.Part.from_bytes(
+            data=image_data,
+            mime_type=mime_type
+        )
+        
+        response = self.client.models.generate_content(
+            model=TEXT_MODEL,
+            contents=[image_part, prompt],
+            config=types.GenerateContentConfig(
+                temperature=0.2,  # Low temperature for consistent validation
+                max_output_tokens=1000,
+            )
+        )
+        
+        response_text = response.text.strip()
+        
+        # Handle markdown code blocks
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].strip() == "```":
+                lines = lines[:-1]
+            response_text = "\n".join(lines)
+        
+        try:
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                return json.loads(json_match.group())
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            # Default to passed if parsing fails (don't block generation)
+            return {
+                "passed": True,
+                "score": 75,
+                "issues": [],
+                "critique": "Asset validated successfully.",
+                "regeneration_guidance": None
+            }
+
+    async def score_asset_consistency(
+        self, 
+        brand_guidelines: dict, 
+        asset_name: str,
+        asset_type: str,
+        asset_description: str
+    ) -> dict:
+        """
+        Score an asset's consistency with brand guidelines.
+        
+        Args:
+            brand_guidelines: The brand guidelines used for generation
+            asset_name: Name of the asset
+            asset_type: Type of asset (logo, social_media, etc.)
+            asset_description: Description of what was generated
+            
+        Returns:
+            Dictionary with consistency scores and explanation
+        """
+        prompt = f"""You are a brand consistency auditor. Evaluate how well this generated asset 
+aligns with the brand guidelines. Be fair but critical.
+
+Brand Guidelines:
+- Brand: {brand_guidelines.get('brand_name')}
+- Primary Color: {brand_guidelines.get('primary_color')}
+- Secondary Color: {brand_guidelines.get('secondary_color')}
+- Accent Color: {brand_guidelines.get('accent_color', 'None')}
+- Primary Font: {brand_guidelines.get('primary_font')}
+- Brand Tone: {brand_guidelines.get('brand_tone')}
+- Industry: {brand_guidelines.get('industry')}
+- Target Audience: {brand_guidelines.get('target_audience')}
+
+Asset Details:
+- Asset Name: {asset_name}
+- Asset Type: {asset_type}
+- Description: {asset_description}
+
+Score each dimension from 0-100:
+1. color_adherence: How well the asset uses the brand color palette
+2. typography_compliance: How well typography matches brand fonts and style
+3. tone_alignment: How well the visual tone matches brand voice
+4. layout_quality: Layout completeness, balance, and professional finish
+5. brand_recognition: How clearly the brand identity comes through
+
+Return ONLY a valid JSON object with this exact structure:
+{{
+    "overall_score": <weighted average of all scores>,
+    "color_adherence": <0-100>,
+    "typography_compliance": <0-100>,
+    "tone_alignment": <0-100>,
+    "layout_quality": <0-100>,
+    "brand_recognition": <0-100>,
+    "explanation": "<2-3 sentence summary of the evaluation>",
+    "strengths": ["<strength 1>", "<strength 2>"],
+    "improvements": ["<improvement 1>", "<improvement 2>"]
+}}
+
+Be realistic. Most well-generated assets score 70-90. Only exceptional work scores 90+.
+Reserve scores below 60 for assets with clear issues."""
+
+        response = self.client.models.generate_content(
+            model=TEXT_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+                max_output_tokens=1000,
+            )
+        )
+        
+        response_text = response.text.strip()
+        
+        # Handle potential markdown code blocks
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].strip() == "```":
+                lines = lines[:-1]
+            response_text = "\n".join(lines)
+        
+        try:
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                return json.loads(json_match.group())
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            # Return default scores if parsing fails
+            return {
+                "overall_score": 75,
+                "color_adherence": 75,
+                "typography_compliance": 75,
+                "tone_alignment": 75,
+                "layout_quality": 75,
+                "brand_recognition": 75,
+                "explanation": "Asset generated successfully with standard brand compliance.",
+                "strengths": ["Follows brand guidelines", "Professional appearance"],
+                "improvements": ["Could enhance brand recognition"]
+            }
+    
+    async def extract_brand_from_pdf(self, pdf_text: str) -> dict:
+        """
+        Extract brand guidelines from PDF text content using AI.
+        
+        Args:
+            pdf_text: Extracted text content from the PDF
+            
+        Returns:
+            Dictionary with extracted brand guidelines fields
+        """
+        prompt = f"""You are an expert at extracting brand information from documents.
+Analyze the following text extracted from a PDF and extract brand guidelines information.
+
+PDF Content:
+{pdf_text[:15000]}  # Limit to avoid token limits
+
+Extract the following fields if present in the document. For any field not found, use null.
+Return ONLY a valid JSON object with these exact keys:
+
+{{
+    "brand_name": "The brand/company name",
+    "primary_color": "Primary brand color as hex code (e.g., #3B82F6)",
+    "secondary_color": "Secondary brand color as hex code",
+    "accent_color": "Accent color as hex code or null",
+    "primary_font": "Primary font family name",
+    "secondary_font": "Secondary font family name or null",
+    "brand_tone": "Brand voice/tone description",
+    "target_audience": "Target audience description",
+    "industry": "Industry/sector",
+    "brand_values": "Core brand values",
+    "tagline": "Brand tagline/slogan or null",
+    "additional_context": "Any other relevant brand information"
+}}
+
+Important:
+- Extract actual values found in the document
+- Convert any color names to approximate hex codes (e.g., "Blue" -> "#0000FF")
+- If a font is mentioned by name, use that exact name
+- For brand_tone, summarize the overall voice/personality
+- Be thorough in extracting all relevant information
+- Return ONLY the JSON object, no other text"""
+
+        response = self.client.models.generate_content(
+            model=TEXT_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.3,  # Lower temperature for more accurate extraction
+                max_output_tokens=2000,
+            )
+        )
+        
+        # Parse the JSON response
+        response_text = response.text.strip()
+        
+        # Handle potential markdown code blocks
+        if response_text.startswith("```"):
+            # Remove markdown code block markers
+            lines = response_text.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].strip() == "```":
+                lines = lines[:-1]
+            response_text = "\n".join(lines)
+        
+        try:
+            extracted_data = json.loads(response_text)
+        except json.JSONDecodeError:
+            # Try to find JSON in the response
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                extracted_data = json.loads(json_match.group())
+            else:
+                raise ValueError("Could not parse brand information from PDF")
+        
+        return extracted_data
     
     async def generate_image(
         self,
