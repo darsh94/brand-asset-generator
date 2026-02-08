@@ -61,6 +61,16 @@ class BrandGuidelines(BaseModel):
         None, 
         description="Any additional context about the brand identity"
     )
+    
+    # Competitive differentiation
+    competitors: Optional[str] = Field(
+        None, 
+        description="Names of key competitors (comma-separated, e.g., 'Stripe, Square, PayPal')"
+    )
+    differentiation: Optional[str] = Field(
+        None,
+        description="What makes this brand unique/different from competitors"
+    )
 
 
 class LogoVariation(str, Enum):

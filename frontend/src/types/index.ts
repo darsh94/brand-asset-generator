@@ -34,6 +34,9 @@ export interface BrandGuidelines {
   brand_values?: string;
   tagline?: string;
   additional_context?: string;
+  // Competitive differentiation
+  competitors?: string;
+  differentiation?: string;
 }
 
 export interface LogoRequest {

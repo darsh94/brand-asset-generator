@@ -57,6 +57,17 @@ class GeminiService:
         Returns:
             Detailed brand analysis as a string
         """
+        # Build competitive context if provided
+        competitors = brand_guidelines.get('competitors', '')
+        differentiation = brand_guidelines.get('differentiation', '')
+        competitive_section = ""
+        if competitors or differentiation:
+            competitive_section = f"""
+Competitive Landscape:
+Competitors: {competitors if competitors else 'Not specified'}
+Key Differentiator: {differentiation if differentiation else 'To be defined'}
+"""
+
         prompt = f"""You are a senior brand strategist at a world-class advertising agency. 
 Write a brand identity brief for the creative team. Your writing style is confident, 
 precise, and sophisticated—no fluff, no jargon, just sharp strategic insight.
@@ -73,7 +84,7 @@ Tagline: {brand_guidelines.get('tagline', 'None provided')}
 Visual System:
 Primary: {brand_guidelines.get('primary_color')} | Secondary: {brand_guidelines.get('secondary_color')} | Accent: {brand_guidelines.get('accent_color', 'None')}
 Typography: {brand_guidelines.get('primary_font')} (primary), {brand_guidelines.get('secondary_font', 'same as primary')} (secondary)
-
+{competitive_section}
 Additional Context: {brand_guidelines.get('additional_context', 'None')}
 
 Write a creative brief covering:
@@ -87,6 +98,8 @@ DESIGN PRINCIPLES — Three to four guiding rules the design team must follow. S
 IMAGERY & TEXTURE — The visual world this brand inhabits. What does photography look like? What graphic elements reinforce the identity?
 
 AUDIENCE CONNECTION — How the visual identity speaks to the target audience. What makes them stop scrolling?
+
+COMPETITIVE DIFFERENTIATION — {"Analyze how the visual identity should clearly distinguish this brand from competitors like " + competitors + ". What visual and tonal elements will make this brand unmistakably different? How does the differentiation (" + differentiation + ") translate into design choices?" if competitors else "What visual elements will make this brand stand out in the " + brand_guidelines.get('industry', 'market') + " space?"}
 
 Write in plain prose. No bullet points. No asterisks. No markdown formatting. 
 Write as if this brief will be printed and handed to the creative director.

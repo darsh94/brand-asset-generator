@@ -7,7 +7,7 @@
  */
 
 import { useForm } from 'react-hook-form';
-import { Palette, Type, Users, Building2, Heart, Sparkles } from 'lucide-react';
+import { Palette, Type, Users, Building2, Heart, Sparkles, Target } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { BrandGuidelines, GenerationOptions } from '../types';
 import { FONT_OPTIONS, INDUSTRY_OPTIONS, TONE_OPTIONS } from '../types';
@@ -49,6 +49,8 @@ export default function BrandForm({ onSubmit, isLoading }: BrandFormProps) {
       brand_values: '',
       tagline: '',
       additional_context: '',
+      competitors: '',
+      differentiation: '',
       include_logos: true,
       include_social: true,
       include_presentation: true,
@@ -482,6 +484,47 @@ export default function BrandForm({ onSubmit, isLoading }: BrandFormProps) {
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
               placeholder="Any additional information about your brand identity, style preferences, or specific requirements..."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Competitive Differentiation Section */}
+      <section className="bg-white rounded-2xl shadow-lg p-6 animate-slide-up" style={{ animationDelay: '0.35s' }}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg">
+            <Target className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">Competitive Differentiation</h2>
+            <p className="text-sm text-gray-500">Help AI create assets that stand out from competitors</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Key Competitors (Optional)
+            </label>
+            <input
+              type="text"
+              {...register('competitors')}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              placeholder="e.g., Stripe, Square, PayPal"
+            />
+            <p className="mt-1 text-xs text-gray-400">Comma-separated list of competitor names</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              What Makes You Different? (Optional)
+            </label>
+            <input
+              type="text"
+              {...register('differentiation')}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              placeholder="e.g., AI-powered, eco-friendly, local-first"
+            />
+            <p className="mt-1 text-xs text-gray-400">Your unique value proposition or differentiator</p>
           </div>
         </div>
       </section>
