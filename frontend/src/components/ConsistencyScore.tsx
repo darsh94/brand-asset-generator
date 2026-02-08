@@ -4,7 +4,7 @@
  * Shows brand consistency scores with visual indicators and explanations.
  */
 
-import { TrendingUp, TrendingDown, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
 import type { ConsistencyScore as ConsistencyScoreType, BatchConsistencyScore } from '../types';
 
 interface ScoreGaugeProps {
