@@ -6,6 +6,8 @@ Built for the **Gemini 3 Hackathon 2026** - A powerful tool that takes brand gui
 
 📖 **[Read the full story behind Brandbolt](./HACKATHON_WRITEUP.md)**
 
+🧪 **[Testing Guide for Judges](./TESTING_GUIDE.md)**
+
 ## Features
 
 - **Logo Generation**: Multiple variations (primary, horizontal, icon-only, monochrome, reversed)
