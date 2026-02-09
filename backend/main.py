@@ -486,6 +486,14 @@ async def generate_complete_package_stream(
             # Compute batch score
             batch_score = await generator._compute_batch_score(scored_assets)
             
+            # Build campaign context if campaign fields are provided
+            campaign_context = None
+            if brand_guidelines.campaign_name or brand_guidelines.campaign_goal or brand_guidelines.campaign_message:
+                campaign_context = await generator._build_campaign_context(
+                    brand_guidelines=brand_guidelines,
+                    assets=scored_assets
+                )
+            
             # Finalize
             yield f"data: {json.dumps({'type': 'progress', 'step': total_steps + 1, 'total': total_steps + 1, 'percentage': 100, 'message': 'Finalizing assets'})}\n\n"
             
@@ -495,7 +503,8 @@ async def generate_complete_package_stream(
                 assets=scored_assets,
                 brand_analysis=brand_analysis,
                 generation_notes=" | ".join(generation_notes),
-                batch_score=batch_score
+                batch_score=batch_score,
+                campaign=campaign_context
             )
             
             # Send complete event with the final data
