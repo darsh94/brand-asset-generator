@@ -19,13 +19,14 @@ Built for the **Gemini 3 Hackathon 2026** - A powerful tool that takes brand gui
 - **Brand Consistency Scoring**: Each asset scored on color adherence, typography, tone alignment, and brand recognition
 - **Competitive Differentiation**: Analyzes competitor visuals and messaging to ensure generated assets are clearly differentiated in the market
 - **Campaign-Level Asset Bundling**: Delivers complete, ready-to-deploy campaigns with unified messaging, coordinated assets, and a deployment checklist
+- **PDF Brand Guidelines Upload**: Upload existing brand guidelines PDF to auto-fill the form using AI extraction
 
 ## Tech Stack
 
 - **Backend**: Python, FastAPI, google-genai SDK
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS
 - **AI Models**:
-  - `gemini-3-flash`: Brand analysis, validation, and understanding
+  - `gemini-3-flash-preview`: Brand analysis, validation, and understanding
   - `gemini-3-pro-image-preview`: High-fidelity image generation with legible text
 
 ## Quick Start
@@ -86,18 +87,34 @@ The app will be available at `http://localhost:5173`
 
 ## Usage
 
-1. Enter your brand details:
-   - Brand name
+1. **Enter your brand details:**
+   - Brand name, tagline
    - Colors (primary, secondary, accent)
-   - Fonts
+   - Fonts (primary, secondary)
    - Industry and target audience
    - Brand tone and values
 
-2. Select which asset types to generate
+2. **Add competitive context (optional):**
+   - Key competitors
+   - What makes you different
 
-3. Click "Generate Brand Assets"
+3. **Configure campaign bundling (optional):**
+   - Campaign name
+   - Campaign goal
+   - Key message/CTA
 
-4. Preview and download your assets individually or as a complete ZIP package
+4. **Or upload a PDF:** Upload existing brand guidelines to auto-fill the form
+
+5. **Select which asset types to generate**
+
+6. **Click "Generate Brand Assets"**
+
+7. **Review results:**
+   - Campaign context with deployment checklist
+   - Batch consistency score
+   - Individual assets with scores
+
+8. **Download** individual assets or the complete ZIP package
 
 ## Project Structure
 
@@ -119,6 +136,7 @@ brandbolt/
 │   │   └── types/           # TypeScript types
 │   └── package.json
 ├── HACKATHON_WRITEUP.md     # The story behind Brandbolt
+├── TESTING_GUIDE.md         # Testing instructions for judges
 └── README.md
 ```
 
@@ -192,7 +210,7 @@ curl -X POST http://localhost:8000/api/generate/logos \
 
 This project leverages two Gemini models:
 
-### Brand Analysis & Validation (gemini-3-flash)
+### Brand Analysis & Validation (gemini-3-flash-preview)
 Used to deeply understand brand identity and validate generated assets. Capabilities:
 - Visual identity summary and design principles
 - Mood and atmosphere analysis

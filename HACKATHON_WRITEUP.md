@@ -22,7 +22,7 @@ I'm a software engineer. I've spent years building systems, shipping products, s
 
 Two revelations emerged from this hackathon.
 
-**The first was Gemini.** I'd worked with AI APIs before, but Google's Gemini 3 models were different. The combination of `gemini-3-flash` for brand analysis and `gemini-3-pro-image-preview` for image generation felt like having a creative partner who never slept. The text model could dissect brand guidelines with the precision of a Madison Avenue strategist. The image model could render logos with legible text, social templates with proper safe zones, presentation slides with real visual hierarchy. I learned to orchestrate these models—how to chain analysis into generation, how to build prompts that produced consistent results, how to implement a self-correcting validation loop that could critique its own output and try again.
+**The first was Gemini.** I'd worked with AI APIs before, but Google's Gemini 3 models were different. The combination of `gemini-3-flash-preview` for brand analysis and `gemini-3-pro-image-preview` for image generation felt like having a creative partner who never slept. The text model could dissect brand guidelines with the precision of a Madison Avenue strategist. The image model could render logos with legible text, social templates with proper safe zones, presentation slides with real visual hierarchy. I learned to orchestrate these models—how to chain analysis into generation, how to build prompts that produced consistent results, how to implement a self-correcting validation loop that could critique its own output and try again.
 
 **The second revelation was about Cursor.** This hackathon forced me to optimize my development workflow in ways I'd never considered. Custom rules for project structure. Agent skills for repetitive tasks. The ability to parallelize tool calls, to batch operations, to move at a pace I didn't know was possible. By the end of this project, I wasn't just using Cursor—I was thinking differently about how software gets built. It changed my day-to-day development, and that change will outlast this hackathon.
 
@@ -60,15 +60,15 @@ Nothing worth building comes easy. Brandbolt extracted its pound of flesh.
 
 **The third obstacle was validation accuracy.** The self-correcting loop only works if the validation is trustworthy. Early versions of the critique prompt were too generous—they'd pass assets that clearly didn't match the brand colors. Other versions were too harsh, triggering unnecessary regenerations and burning API credits. Calibrating the validator was a subtle art, and I'm still not sure I've perfected it.
 
-**The final challenge was time.** Forty-eight hours sounds like a lot until you're living it. Every feature had to earn its place. The PDF upload for brand guidelines? Cut it—there wasn't time to build robust parsing. The ability to edit individual assets? Deferred to version two. The animated logo variations I'd dreamed about? Dead on arrival.
+**The final challenge was time.** Forty-eight hours sounds like a lot until you're living it. Every feature had to earn its place. The ability to edit individual assets? Deferred to version two. The animated logo variations I'd dreamed about? Dead on arrival. But some features surprised me—the PDF upload for brand guidelines came together faster than expected, and I squeezed in competitive differentiation analysis and campaign bundling in the final hours.
 
-Shipping is about murder. You kill your darlings so the survivors can live.
+Shipping is about murder. You kill your darlings so the survivors can live. But sometimes, when the adrenaline is flowing and the code is cooperating, you save a few.
 
 ---
 
 ## The Verdict
 
-Brandbolt works. You input your brand name, your colors, your fonts, your tone. You click generate. Minutes later, you have a complete brand asset package: primary logos and icon variations, Instagram and LinkedIn templates, presentation slides, welcome emails, marketing banners and business cards. Each asset scored for brand consistency. Each one downloadable.
+Brandbolt works. You input your brand name, your colors, your fonts, your tone. Add your competitors, and the system ensures your assets stand out. Define a campaign, and every asset unifies around your key message. Upload an existing brand guidelines PDF, and the AI extracts everything for you. Click generate. Minutes later, you have a complete brand asset package: primary logos and icon variations, Instagram and LinkedIn templates, presentation slides, welcome emails, marketing banners and business cards. Each asset scored for brand consistency. Each one downloadable. A deployment checklist tells you exactly where to use each piece.
 
 Is it perfect? No. The prompts can still be refined. The validation loop could be smarter. The UI could be slicker.
 
